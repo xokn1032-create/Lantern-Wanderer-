@@ -1,6 +1,6 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Lantern Wanderer - Alive Edition</title>
+<title>Lantern Wanderer - Symphony Edition</title>
 <style>
 html,body{margin:0;height:100%;background:#04020a;overflow:hidden;color:#fff;font-family:system-ui,sans-serif}
 canvas{display:block;width:100%;height:100%;object-fit:contain}
@@ -18,6 +18,23 @@ canvas{display:block;width:100%;height:100%;object-fit:contain}
 var W=960,H=540,TS=32,CH=12,CS=384,g=document.getElementById('c').getContext('2d'),kEl=document.getElementById('k'),nEl=document.getElementById('n'),fEl=document.getElementById('f');
 var SOL={1:1,3:1,4:1,6:1,7:1},CK={},GOT={},ps=[],vis=[],critters=[],enemies=[],K={},IN={x:0,y:0,a:0,b:0};
 var T=5,mv=0,face=1,dash=0,cool=0,pulse=0,score=0,fuel=100,maxFuel=100,pa=0,pb=0,ev=0,lastMsg=-9e9;
+
+/* Web Audio API Sound Synthesizer */
+var AC=window.AudioContext||window.webkitAudioContext,actx=null;
+function initAudio(){if(!actx)actx=new AC()}
+function playTone(freq,type,dur,vol){
+  if(!actx)return;try{
+    var o=actx.createOscillator(),g=actx.createGain();
+    o.type=type;o.frequency.value=freq;
+    g.gain.setValueAtTime(vol,actx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001,actx.currentTime+dur);
+    o.connect(g);g.connect(actx.destination);
+    o.start();o.stop(actx.currentTime+dur);
+  }catch(e){}
+}
+function sfxCollect(){initAudio();playTone(523.25,'sine',0.15,0.2);setTimeout(function(){playTone(659.25,'sine',0.2,0.2)},80);setTimeout(function(){playTone(783.99,'sine',0.3,0.3)},160)}
+function sfxDash(){initAudio();playTone(150,'triangle',0.2,0.3);playTone(300,'sine',0.15,0.2)}
+function sfxPulse(){initAudio();playTone(110,'sine',0.4,0.4);setTimeout(function(){playTone(220,'triangle',0.5,0.3)},100)}
 
 function h2(x,y,s){var n=Math.imul(x|0,374761393)^Math.imul(y|0,668265263)^Math.imul(s|0,1274126177);n=Math.imul(n^n>>>13,1274126177);return((n^n>>>16)>>>0)/4294967296}
 function vn(x,y,s){var xi=Math.floor(x),yi=Math.floor(y),u=x-xi,v=y-yi;u=u*u*(3-2*u);v=v*v*(3-2*v);return(h2(xi,yi,s)*(1-u)+h2(xi+1,yi,s)*u)*(1-v)+(h2(xi,yi+1,s)*(1-u)+h2(xi+1,yi+1,s)*u)*v}
@@ -52,8 +69,8 @@ var px=0,py=0;for(var i0=0;i0<400&&(blk(px,py)||bio(Math.floor(px/TS),Math.floor
 var cx=px-W/2,cy=py-H/2,OFF=[];for(var u=-2;u<3;u++)for(var v=-2;v<3;v++)OFF.push([u,v]);OFF.sort(function(p,q){return p[0]*p[0]+p[1]*p[1]-q[0]*q[0]-q[1]*q[1]});
 
 var KEYS={37:1,38:1,39:1,40:1,32:1,13:1,65:1,68:1,83:1,87:1,69:1};
-addEventListener('keydown',function(e){if(KEYS[e.keyCode]){K[e.keyCode]=1;e.preventDefault()}});
-addEventListener('keyup',function(e){K[e.keyCode]=0});
+addEventListener('keydown',function(e){if(KEYS[e.keyCode]){K[e.keyCode]=1;e.preventDefault();initAudio()}});
+addEventListener('click',function(){initAudio()});
 
 function upd(dt){var i,j,o,net=performance.now()-lastMsg<1500,ix,iy,ia,ib;T+=dt;
 if(fuel>0){var sk=Math.sin(T*.07);fuel=Math.max(0,fuel-dt*1.5*(sk<-.2?1.5:1.0))}
@@ -61,7 +78,9 @@ fEl.textContent=Math.ceil(fuel);
 
 if(net){ix=IN.x||0;iy=IN.y||0;ia=IN.a;ib=IN.b}else{ix=(K[39]||K[68]?1:0)-(K[37]||K[65]?1:0);iy=(K[40]||K[83]?1:0)-(K[38]||K[87]?1:0);ia=K[32];ib=K[13]||K[69]}
 var l=Math.hypot(ix,iy);if(l>1){ix/=l;iy/=l}if(l<.12){ix=iy=0}
-if(ia&&!pa&&cool<=0&&fuel>5){dash=.22;cool=.7;fuel=Math.max(0,fuel-3)}if(ib&&!pb&&pulse<=0){pulse=.7}pa=ia;pb=ib;dash-=dt;cool-=dt;pulse-=dt;
+if(ia&&!pa&&cool<=0&&fuel>5){dash=.22;cool=.7;fuel=Math.max(0,fuel-3);sfxDash()}
+if(ib&&!pb&&pulse<=0){pulse=.7;sfxPulse()}
+pa=ia;pb=ib;dash-=dt;cool-=dt;pulse-=dt;
 
 var sh=bio(Math.floor(px/TS),Math.floor((py-1)/TS))==1,sp=(dash>0?340:140)*(sh?.6:1)*(fuel<=0?.5:1);mv=ix||iy;
 if(mv){if(ix)face=ix>0?1:-1;var nx=px+ix*sp*dt,ny=py+iy*sp*dt;if(!blk(nx,py))px=nx;if(!blk(px,ny))py=ny;
@@ -79,7 +98,7 @@ if(sk<-0.1 && Math.random()<dt*1.5 && enemies.length<6){
 for(i=critters.length-1;i>=0;i--){
   var cr=critters[i]; cr.x+=cr.vx*dt; cr.y+=cr.vy*dt;
   var d=Math.hypot(px-cr.x, py-cr.y);
-  if(d<25){ fuel=Math.min(maxFuel,fuel+5); critters.splice(i,1); for(j=0;j<8;j++)P(cr.x,cr.y,(Math.random()-.5)*60,(Math.random()-.5)*60,.5,'#7af0ff',3); }
+  if(d<25){ fuel=Math.max(0,Math.min(maxFuel,fuel+5)); critters.splice(i,1); sfxCollect(); for(j=0;j<8;j++)P(cr.x,cr.y,(Math.random()-.5)*60,(Math.random()-.5)*60,.5,'#7af0ff',3); }
 }
 
 for(i=enemies.length-1;i>=0;i--){
@@ -99,7 +118,7 @@ for(i=enemies.length-1;i>=0;i--){
 for(i=0;i<vis.length;i++){o=vis[i];if(o.d)continue;var dx=px-o.x,dy=py-8-o.y,d=Math.hypot(dx,dy)||1;
 if(pulse>0&&d<150){o.x+=dx/d*250*dt;o.y+=dy/d*250*dt}
 if(d<20){
-  o.d=1;GOT[o.k]=1;
+  o.d=1;GOT[o.k]=1; sfxCollect();
   if(o.t==8){score++;nEl.textContent=score;fuel=Math.min(maxFuel,fuel+35);for(j=0;j<20;j++)P(o.x,o.y-8,(Math.random()-.5)*180,(Math.random()-.5)*180-40,.8,'#ffe27a',4)}
   else{fuel=Math.min(maxFuel,fuel+20);for(j=0;j<12;j++)P(o.x,o.y-8,(Math.random()-.5)*100,(Math.random()-.5)*100-20,.6,'#ff7ad9',3)}
 }}
@@ -125,26 +144,18 @@ function drawVectorObject(c,t,v,sx,sy){
 
 function hero(sx,sy){
   var f=face;
-  // Shadow underneath
   g.fillStyle='rgba(0,0,0,0.4)';g.beginPath();g.ellipse(sx,sy,10,4,0,0,Math.PI*2);g.fill();
-  
-  // Wanderer Robe / Body
   g.fillStyle='#2fd3b7';g.beginPath();g.ellipse(sx,sy-16,10,14,0,0,Math.PI*2);g.fill();
-  
-  // Hood / Head piece
   g.fillStyle='#1b9d94';g.beginPath();g.arc(sx,sy-24,8,0,Math.PI*2);g.fill();
 
-  // ✨ Blinking Symmetrical Eyes Animation ✨
-  var blink = Math.sin(T * 3.5) > 0.9 ? 0.15 : 1; // Blinks periodically
+  var blink = Math.sin(T * 3.5) > 0.9 ? 0.15 : 1;
   g.fillStyle='#ffffff';
   g.shadowColor='#7af0ff'; g.shadowBlur=8;
   var eyeOffsetX = f * 2;
-  // Left and Right Symmetrical Eyes
   g.fillRect(sx - 3 + eyeOffsetX, sy - 26, 2, 4 * blink);
   g.fillRect(sx + 1 + eyeOffsetX, sy - 26, 2, 4 * blink);
   g.shadowBlur=0;
 
-  // Floating Lantern Orb
   g.fillStyle='#ffe27a';g.shadowColor='#ffe27a';g.shadowBlur=25;
   g.beginPath();g.arc(sx+f*16,sy-20,8,0,Math.PI*2);g.fill();
   g.shadowBlur=0;
