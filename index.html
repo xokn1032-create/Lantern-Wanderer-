@@ -1,6 +1,6 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Lantern Wanderer - High-Fidelity Shader Edition</title>
+<title>Lantern Wanderer - Volumetric Bloom Edition</title>
 <style>
 html,body{margin:0;height:100%;background:#020108;overflow:hidden;color:#fff;font-family:system-ui,sans-serif}
 canvas{display:block;width:100%;height:100%}
@@ -29,6 +29,12 @@ canvas{display:block;width:100%;height:100%}
   <button class="cb" id="u3" onclick="craft(3)">[3] Pulse Array Lv.<span id="lv3">1</span><small>2💎 + 2✦ (+Pulse/Glow)</small></button>
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/peerjs@1.3.2/dist/peerjs.min.js"></script>
 <script>
 var kEl=document.getElementById('k'),nEl=document.getElementById('n'),fEl=document.getElementById('f'),mfEl=document.getElementById('mf');
@@ -37,7 +43,7 @@ var SOL={1:1,3:1,6:1,7:1},CK={},GOT={},ps=[],critters=[],spiders=[],K={},IN={x:0
 var T=5,mv=0,dash=0,cool=0,pulse=0,score=0,fuel=100,maxFuel=100,pa=0,pb=0,ev=0,lastMsg=-9e9;
 
 var inv={f:0,c:0,s:0},upg={1:1,2:1,3:1};
-var baseSpeed=9.5,dashCool=0.7,pulseRad=10,glowInt=4.2;
+var baseSpeed=9.5,dashCool=0.7,pulseRad=10,glowInt=4.5;
 
 /* Web Audio Synthesizer */
 var AC=window.AudioContext||window.webkitAudioContext,actx=null;
@@ -71,7 +77,7 @@ function craft(id){
   initAudio();var ok=false;
   if(id==1&&inv.f>=3&&inv.c>=1){inv.f-=3;inv.c-=1;upg[1]++;maxFuel+=25;fuel=maxFuel;ok=true}
   else if(id==2&&inv.f>=2&&inv.c>=2){inv.f-=2;inv.c-=2;upg[2]++;baseSpeed+=1.6;dashCool=Math.max(0.25,dashCool-0.1);ok=true}
-  else if(id==3&&inv.c>=2&&inv.s>=2){inv.c-=2;inv.s-=2;upg[3]++;pulseRad+=3;glowInt+=1.0;ok=true}
+  else if(id==3&&inv.c>=2&&inv.s>=2){inv.c-=2;inv.s-=2;upg[3]++;pulseRad+=3;glowInt+=1.2;ok=true}
   if(ok){
     document.getElementById('lv'+id).textContent=upg[id];
     sfxCraft();
@@ -92,25 +98,37 @@ if(!t&&h2(x,y,13)<.014)return[8,0];return t?[t,v]:0}
 function sol(tx,ty){var b=bio(tx,ty);if(b==0)return 1;var o=oa(tx,ty,b);return o&&SOL[o[0]]}
 function blk(x,z){var r=0.5,a=Math.floor((x-r)/TS),b=Math.floor((x+r)/TS),c=Math.floor((z-r)/TS),d=Math.floor((z+r)/TS);return sol(a,c)||sol(b,c)||sol(a,d)||sol(b,d)}
 
-/* Three.js Renderer with ACES Filmic Tone Mapping */
+/* Three.js Renderer with Exponential Volumetric Fog & ACES Tone Mapping */
 var scene=new THREE.Scene();
-scene.background=new THREE.Color(0x020108);
-scene.fog=new THREE.FogExp2(0x020108,0.024);
+scene.background=new THREE.Color(0x020109);
+scene.fog=new THREE.FogExp2(0x030210,0.032);
 
-var camera=new THREE.PerspectiveCamera(45,window.innerWidth/window.innerHeight,0.1,150);
+var camera=new THREE.PerspectiveCamera(45,window.innerWidth/window.innerHeight,0.1,140);
 var renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});
 renderer.setSize(window.innerWidth,window.innerHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
 renderer.toneMapping=THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure=1.25;
+renderer.toneMappingExposure=1.15;
 document.body.appendChild(renderer.domElement);
+
+/* Post-Processing UnrealBloomPass for Volumetric Optical Glow */
+var composer=null;
+if(typeof THREE.EffectComposer!=='undefined'&&typeof THREE.UnrealBloomPass!=='undefined'){
+  composer=new THREE.EffectComposer(renderer);
+  var renderPass=new THREE.RenderPass(scene,camera);
+  var bloomPass=new THREE.UnrealBloomPass(new THREE.Vector2(window.innerWidth,window.innerHeight),1.15,0.65,0.22);
+  composer.addPass(renderPass);
+  composer.addPass(bloomPass);
+}
+
 window.addEventListener('resize',function(){
   camera.aspect=window.innerWidth/window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth,window.innerHeight);
+  if(composer)composer.setSize(window.innerWidth,window.innerHeight);
 });
 
-var ambLight=new THREE.AmbientLight(0x161032,0.85);
+var ambLight=new THREE.AmbientLight(0x140e2e,0.75);
 scene.add(ambLight);
 var rimDirLight=new THREE.DirectionalLight(0x00f0ff,0.65);
 rimDirLight.position.set(-18,28,-12);
@@ -119,7 +137,20 @@ var pinkFillLight=new THREE.DirectionalLight(0xff007f,0.45);
 pinkFillLight.position.set(20,18,16);
 scene.add(pinkFillLight);
 
-/* Procedural Circuit-Etched Bump & Emissive Canvas Textures */
+/* Procedural Radial Glow Sprite & Circuit Textures */
+function makeGlowSpriteTexture(){
+  var cv=document.createElement('canvas');cv.width=128;cv.height=128;
+  var c=cv.getContext('2d');
+  var gr=c.createRadialGradient(64,64,0,64,64,64);
+  gr.addColorStop(0,'rgba(255,255,255,1)');
+  gr.addColorStop(0.25,'rgba(255,255,255,0.65)');
+  gr.addColorStop(0.6,'rgba(255,255,255,0.15)');
+  gr.addColorStop(1,'rgba(255,255,255,0)');
+  c.fillStyle=gr;c.fillRect(0,0,128,128);
+  return new THREE.CanvasTexture(cv);
+}
+var bokehTex=makeGlowSpriteTexture();
+
 function makeCircuitTexture(lineCol,bgCol,repeat){
   var cv=document.createElement('canvas');cv.width=256;cv.height=256;
   var c=cv.getContext('2d');
@@ -164,77 +195,52 @@ function applyFresnelRim(mat,rimHex,power,strength){
 
 /* High-Fidelity Shader Materials */
 var matFloor=new THREE.MeshStandardMaterial({
-  color:0x080616,
-  roughness:0.35,
-  metalness:0.8,
-  bumpMap:floorBump,
-  bumpScale:0.06,
-  emissiveMap:floorEmissive,
-  emissive:0x00f0ff,
-  emissiveIntensity:0.35
+  color:0x070514,roughness:0.35,metalness:0.8,
+  bumpMap:floorBump,bumpScale:0.06,
+  emissiveMap:floorEmissive,emissive:0x00f0ff,emissiveIntensity:0.35
 });
 
 var matWater=new THREE.MeshPhysicalMaterial({
-  color:0x041836,
-  emissive:0x0055aa,
-  emissiveIntensity:0.65,
-  roughness:0.08,
-  metalness:0.9,
-  clearcoat:1.0,
-  clearcoatRoughness:0.05
+  color:0x041836,emissive:0x0055aa,emissiveIntensity:0.75,
+  roughness:0.08,metalness:0.9,clearcoat:1.0,clearcoatRoughness:0.05
 });
 
-var matWireCyan=new THREE.MeshBasicMaterial({color:0x00f0ff,wireframe:true,transparent:true,opacity:0.85});
-var matWirePink=new THREE.MeshBasicMaterial({color:0xff007f,wireframe:true,transparent:true,opacity:0.85});
+var matWireCyan=new THREE.MeshBasicMaterial({color:0x00f0ff,wireframe:true,transparent:true,opacity:0.9});
+var matWirePink=new THREE.MeshBasicMaterial({color:0xff007f,wireframe:true,transparent:true,opacity:0.9});
 
 var matObsidian=applyFresnelRim(new THREE.MeshStandardMaterial({
-  color:0x0c0820,
-  roughness:0.25,
-  metalness:0.85,
-  bumpMap:carapaceBump,
-  bumpScale:0.04
+  color:0x0c0820,roughness:0.25,metalness:0.85,bumpMap:carapaceBump,bumpScale:0.04
 }),0x00f0ff,2.4,0.85);
 
 var matSpiderShell=applyFresnelRim(new THREE.MeshPhysicalMaterial({
-  color:0x101428,
-  roughness:0.15,
-  metalness:0.92,
-  clearcoat:1.0,
-  clearcoatRoughness:0.1,
-  bumpMap:carapaceBump,
-  bumpScale:0.05
-}),0xff007f,2.0,1.35);
+  color:0x101428,roughness:0.15,metalness:0.92,clearcoat:1.0,clearcoatRoughness:0.1,
+  bumpMap:carapaceBump,bumpScale:0.05
+}),0xff007f,2.0,1.45);
 
 var matCrystalCyan=applyFresnelRim(new THREE.MeshPhysicalMaterial({
-  color:0x00f0ff,
-  emissive:0x00aacc,
-  emissiveIntensity:0.75,
-  roughness:0.08,
-  metalness:0.2,
-  clearcoat:1.0,
-  transparent:true,
-  opacity:0.86
-}),0xffffff,1.8,0.9);
+  color:0x00f0ff,emissive:0x00bbdd,emissiveIntensity:0.9,
+  roughness:0.08,metalness:0.2,clearcoat:1.0,transparent:true,opacity:0.88
+}),0xffffff,1.8,1.0);
 
 var matCrystalPink=applyFresnelRim(new THREE.MeshPhysicalMaterial({
-  color:0xff007f,
-  emissive:0xaa0055,
-  emissiveIntensity:0.75,
-  roughness:0.08,
-  metalness:0.2,
-  clearcoat:1.0,
-  transparent:true,
-  opacity:0.86
-}),0xff99cc,1.8,0.9);
+  color:0xff007f,emissive:0xcc0066,emissiveIntensity:0.9,
+  roughness:0.08,metalness:0.2,clearcoat:1.0,transparent:true,opacity:0.88
+}),0xff99cc,1.8,1.0);
 
 var matShard=applyFresnelRim(new THREE.MeshPhysicalMaterial({
-  color:0xffe27a,
-  emissive:0xff9900,
-  emissiveIntensity:1.1,
-  roughness:0.05,
-  metalness:0.6,
-  clearcoat:1.0
-}),0xffffff,1.5,1.0);
+  color:0xffe27a,emissive:0xffaa00,emissiveIntensity:1.3,
+  roughness:0.05,metalness:0.6,clearcoat:1.0
+}),0xffffff,1.5,1.2);
+
+/* Volumetric Light Shaft & Ground Aura Materials */
+var matVolBeamCyan=new THREE.MeshBasicMaterial({
+  color:0x00f0ff,transparent:true,opacity:0.09,
+  blending:THREE.AdditiveBlending,depthWrite:false,side:THREE.DoubleSide
+});
+var matVolLanternCone=new THREE.MeshBasicMaterial({
+  color:0xffaa33,transparent:true,opacity:0.14,
+  blending:THREE.AdditiveBlending,depthWrite:false,side:THREE.DoubleSide
+});
 
 var geoPine=new THREE.ConeGeometry(1.1,3.4,5);
 var geoDream=new THREE.IcosahedronGeometry(1.4,1);
@@ -243,16 +249,13 @@ var geoCrystal=new THREE.CylinderGeometry(0.15,0.65,2.4,6);
 var geoFlower=new THREE.OctahedronGeometry(0.45,0);
 var geoMonolith=new THREE.BoxGeometry(1.2,4.2,1.2);
 var geoShard=new THREE.OctahedronGeometry(0.55,0);
+var geoGodRay=new THREE.CylinderGeometry(0.9,1.8,14,12,1,true);
 
-/* 3D Player Wanderer & Floating Lantern */
+/* 3D Player Wanderer & Volumetric Floating Lantern */
 var playerGroup=new THREE.Group();
 var cloakMat=applyFresnelRim(new THREE.MeshStandardMaterial({
-  color:0x0e1324,
-  roughness:0.45,
-  metalness:0.65,
-  bumpMap:carapaceBump,
-  bumpScale:0.02
-}),0x00f0ff,2.2,1.1);
+  color:0x0e1324,roughness:0.45,metalness:0.65,bumpMap:carapaceBump,bumpScale:0.02
+}),0x00f0ff,2.2,1.2);
 
 var robeMesh=new THREE.Mesh(new THREE.ConeGeometry(0.65,1.6,16),cloakMat);
 robeMesh.position.y=0.8;
@@ -261,23 +264,50 @@ trimRing.rotation.x=Math.PI/2;trimRing.position.y=0.05;
 var headMesh=new THREE.Mesh(new THREE.SphereGeometry(0.46,16,16),cloakMat);
 headMesh.position.y=1.65;
 
-var eyeMat=new THREE.MeshBasicMaterial({color:0xff007f});
+var eyeMat=new THREE.MeshBasicMaterial({color:0xff2299});
 var eyeL=new THREE.Mesh(new THREE.SphereGeometry(0.08,8,8),eyeMat);
 var eyeR=new THREE.Mesh(new THREE.SphereGeometry(0.08,8,8),eyeMat);
 eyeL.position.set(-0.16,1.68,0.4);eyeR.position.set(0.16,1.68,0.4);
 
 var lanternGroup=new THREE.Group();
-var lanternCore=new THREE.Mesh(new THREE.OctahedronGeometry(0.26,0),new THREE.MeshBasicMaterial({color:0xfff0aa}));
+var lanternCore=new THREE.Mesh(new THREE.OctahedronGeometry(0.26,0),new THREE.MeshBasicMaterial({color:0xfff5cc}));
 var lanternCage=new THREE.Mesh(new THREE.BoxGeometry(0.44,0.54,0.44),new THREE.MeshBasicMaterial({color:0xffaa33,wireframe:true}));
-var lanternLight=new THREE.PointLight(0xffaa33,glowInt,26,1.6);
-lanternGroup.add(lanternCore,lanternCage,lanternLight);
+var lanternHalo=new THREE.Sprite(new THREE.SpriteMaterial({map:bokehTex,color:0xffaa33,transparent:true,opacity:0.75,blending:THREE.AdditiveBlending,depthWrite:false}));
+lanternHalo.scale.set(2.4,2.4,1);
+var lanternCone=new THREE.Mesh(new THREE.ConeGeometry(2.6,3.2,20,1,true),matVolLanternCone);
+lanternCone.position.y=-1.4;
+var lanternLight=new THREE.PointLight(0xffaa33,glowInt,28,1.5);
+lanternGroup.add(lanternCore,lanternCage,lanternHalo,lanternCone,lanternLight);
 lanternGroup.position.set(0.95,1.45,0.3);
 
 playerGroup.add(robeMesh,trimRing,headMesh,eyeL,eyeR,lanternGroup);
 scene.add(playerGroup);
 
+/* Floating 3D Atmospheric Bokeh Spores System */
+var sporeCount=260;
+var sporeGeo=new THREE.BufferGeometry();
+var sporePos=new Float32Array(sporeCount*3);
+var sporeCol=new Float32Array(sporeCount*3);
+var sporeOffsets=[];
+for(var i=0;i<sporeCount;i++){
+  sporePos[i*3]=(Math.random()-0.5)*56;
+  sporePos[i*3+1]=0.3+Math.random()*12;
+  sporePos[i*3+2]=(Math.random()-0.5)*56;
+  var cPick=i%3===0?new THREE.Color(0x00f0ff):i%3===1?new THREE.Color(0xff007f):new THREE.Color(0xffcc66);
+  sporeCol[i*3]=cPick.r;sporeCol[i*3+1]=cPick.g;sporeCol[i*3+2]=cPick.b;
+  sporeOffsets.push({x:sporePos[i*3],y:sporePos[i*3+1],z:sporePos[i*3+2],spd:0.4+Math.random()*0.8,ph:Math.random()*10});
+}
+sporeGeo.setAttribute('position',new THREE.BufferAttribute(sporePos,3));
+sporeGeo.setAttribute('color',new THREE.BufferAttribute(sporeCol,3));
+var sporeMat=new THREE.PointsMaterial({
+  size:0.48,map:bokehTex,vertexColors:true,
+  transparent:true,opacity:0.75,blending:THREE.AdditiveBlending,depthWrite:false
+});
+var sporeField=new THREE.Points(sporeGeo,sporeMat);
+scene.add(sporeField);
+
 /* Pulse Shockwave 3D Ring */
-var pulseMesh=new THREE.Mesh(new THREE.RingGeometry(0.85,1.0,48),new THREE.MeshBasicMaterial({color:0x00f0ff,side:THREE.DoubleSide,transparent:true,opacity:0}));
+var pulseMesh=new THREE.Mesh(new THREE.RingGeometry(0.85,1.0,48),new THREE.MeshBasicMaterial({color:0x00f0ff,side:THREE.DoubleSide,transparent:true,opacity:0,blending:THREE.AdditiveBlending}));
 pulseMesh.rotation.x=-Math.PI/2;pulseMesh.position.y=0.15;
 scene.add(pulseMesh);
 
@@ -315,7 +345,8 @@ function buildChunk(cx,cz){
       var trunk=new THREE.Mesh(new THREE.CylinderGeometry(0.25,0.4,2.2,6),matObsidian);trunk.position.y=1.1;
       var crown=new THREE.Mesh(geoDream,matWirePink);crown.position.y=2.8;
       var inner=new THREE.Mesh(geoDream,matCrystalCyan);inner.position.y=2.8;inner.scale.set(0.55,0.55,0.55);
-      mesh.add(trunk,crown,inner);
+      var beam=new THREE.Mesh(geoGodRay,matVolBeamCyan);beam.position.y=7;
+      mesh.add(trunk,crown,inner,beam);
     }else if(t==3){
       mesh=new THREE.Mesh(geoRock,matObsidian);mesh.position.y=0.5;
       var rw=new THREE.Mesh(geoRock,matWireCyan);rw.scale.set(1.04,1.04,1.04);mesh.add(rw);
@@ -332,7 +363,8 @@ function buildChunk(cx,cz){
       var m1=new THREE.Mesh(geoMonolith,matObsidian);m1.position.y=2.1;
       var m2=new THREE.Mesh(geoMonolith,matWireCyan);m2.position.y=2.1;m2.scale.set(1.03,1.03,1.03);
       var core=new THREE.Mesh(new THREE.BoxGeometry(0.25,3.2,0.25),matCrystalCyan);core.position.y=2.1;
-      mesh.add(m1,m2,core);
+      var ray=new THREE.Mesh(geoGodRay,matVolBeamCyan);ray.position.y=7;
+      mesh.add(m1,m2,core,ray);
     }else if(t==8){
       mesh=new THREE.Mesh(geoShard,matShard);mesh.position.y=1.0;
     }
@@ -353,7 +385,7 @@ function spawnParticle(x,y,z,vx,vy,vz,l,col){
   ps.push({mesh:m,vx:vx,vy:vy,vz:vz,l:l});
 }
 
-/* 3D Cyber-Parasite (High-Fidelity Metallic Spider) */
+/* 3D Cyber-Parasite */
 function spawnSpider(x,z){
   var gSpd=new THREE.Group();
   var abdomen=new THREE.Mesh(new THREE.SphereGeometry(0.68,14,14),matSpiderShell);
@@ -369,7 +401,7 @@ function spawnSpider(x,z){
   gSpd.add(abdomen,head,wire,eL,eR);
 
   var legs=[];
-  var legUpperMat=applyFresnelRim(new THREE.MeshStandardMaterial({color:0x1a1036,metalness:0.9,roughness:0.2}),0x9b4dff,2.0,1.2);
+  var legUpperMat=applyFresnelRim(new THREE.MeshStandardMaterial({color:0x1a1036,metalness:0.9,roughness:0.2}),0x9b4dff,2.0,1.3);
   for(var i=0;i<8;i++){
     var side=i<4?-1:1;
     var row=(i%4)-1.5;
@@ -419,8 +451,11 @@ function upd(dt){
   fEl.textContent=Math.ceil(fuel);
 
   var night=Math.min(1,Math.max(0,0.4-sk*1.4));
-  ambLight.intensity=0.9-night*0.6;
-  lanternLight.intensity=(fuel<=0?0.4:glowInt)*(0.85+0.15*Math.sin(T*8));
+  ambLight.intensity=0.8-night*0.55;
+  var activeGlow=(fuel<=0?0.45:glowInt)*(0.88+0.12*Math.sin(T*8));
+  lanternLight.intensity=activeGlow;
+  lanternHalo.scale.setScalar(fuel<=0?0.8:2.2+0.3*Math.sin(T*6));
+  lanternCone.material.opacity=fuel<=0?0.03:0.13;
   lanternGroup.position.y=1.45+Math.sin(T*4)*0.12;
 
   var blink=Math.sin(T*3.5)>0.92?0.1:1;
@@ -454,6 +489,17 @@ function upd(dt){
   camZ+=(pz+17-camZ)*Math.min(1,dt*6);
   camera.position.set(camX,15.5,camZ);
   camera.lookAt(camX,0.8,camZ-17);
+
+  /* Update Floating Atmospheric Bokeh Spores around Player */
+  var posAttr=sporeGeo.attributes.position;
+  for(var i=0;i<sporeCount;i++){
+    var so=sporeOffsets[i];
+    var wx=px+((so.x-px+28)%56+56)%56-28;
+    var wz=pz+((so.z-pz+28)%56+56)%56-28;
+    var wy=so.y+Math.sin(T*so.spd+so.ph)*0.6;
+    posAttr.setXYZ(i,wx+Math.cos(T*0.5+so.ph)*0.5,wy,wz+Math.sin(T*0.5+so.ph)*0.5);
+  }
+  posAttr.needsUpdate=true;
 
   if(pulse>0){
     var sc=(1-pulse/0.7)*pulseRad;
@@ -538,7 +584,8 @@ var last=0;
 function loop(ms){
   var dt=Math.min(0.05,(ms-last)/1000||0);last=ms;
   upd(dt);
-  renderer.render(scene,camera);
+  if(composer)composer.render();
+  else renderer.render(scene,camera);
   requestAnimationFrame(loop);
 }
 
