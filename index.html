@@ -1,6 +1,6 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Lantern Wanderer - Ecosystem Edition</title>
+<title>Lantern Wanderer - Alive Edition</title>
 <style>
 html,body{margin:0;height:100%;background:#04020a;overflow:hidden;color:#fff;font-family:system-ui,sans-serif}
 canvas{display:block;width:100%;height:100%;object-fit:contain}
@@ -68,7 +68,6 @@ if(mv){if(ix)face=ix>0?1:-1;var nx=px+ix*sp*dt,ny=py+iy*sp*dt;if(!blk(nx,py))px=
 if(dash>0)P(px,py-12,0,0,.4,'#7af0ff',5);if(sh&&Math.random()<dt*20)P(px,py,0,0,.5,'#e6faff',3)}
 cx+=(px-W/2-cx)*Math.min(1,dt*6);cy+=(py-H/2-cy)*Math.min(1,dt*6);
 
-// Spawn Critters & Enemies procedurally around player
 if(Math.random()<dt*2 && critters.length<12){
   critters.push({x:px+(Math.random()-.5)*600, y:py+(Math.random()-.5)*400, vx:(Math.random()-.5)*20, vy:(Math.random()-.5)*20, c:Math.random()<.5?'#7af0ff':'#ff8fb8'});
 }
@@ -77,24 +76,22 @@ if(sk<-0.1 && Math.random()<dt*1.5 && enemies.length<6){
   enemies.push({x:px+(Math.random()>.5?500:-500), y:py+(Math.random()>.5?300:-300), st:0});
 }
 
-// Update Critters
 for(i=critters.length-1;i>=0;i--){
   var cr=critters[i]; cr.x+=cr.vx*dt; cr.y+=cr.vy*dt;
   var d=Math.hypot(px-cr.x, py-cr.y);
   if(d<25){ fuel=Math.min(maxFuel,fuel+5); critters.splice(i,1); for(j=0;j<8;j++)P(cr.x,cr.y,(Math.random()-.5)*60,(Math.random()-.5)*60,.5,'#7af0ff',3); }
 }
 
-// Update Enemies (Shadow Wraiths)
 for(i=enemies.length-1;i>=0;i--){
   var en=enemies[i];
   var edx=px-en.x, edy=py-en.y, ed=Math.hypot(edx,edy)||1;
   if(pulse>0 && ed<180){
-    en.x -= edx/ed*300*dt; en.y -= edy/ed*300*dt; // Repelled by pulse!
+    en.x -= edx/ed*300*dt; en.y -= edy/ed*300*dt;
   } else {
     en.x += edx/ed*55*dt; en.y += edy/ed*55*dt;
   }
   if(ed<18){
-    fuel=Math.max(0,fuel-dt*15); // Drain fuel on contact!
+    fuel=Math.max(0,fuel-dt*15);
     if(Math.random()<dt*10)P(px,py,(Math.random()-.5)*80,(Math.random()-.5)*80,.4,'#ff5fa2',4);
   }
 }
@@ -128,8 +125,26 @@ function drawVectorObject(c,t,v,sx,sy){
 
 function hero(sx,sy){
   var f=face;
+  // Shadow underneath
   g.fillStyle='rgba(0,0,0,0.4)';g.beginPath();g.ellipse(sx,sy,10,4,0,0,Math.PI*2);g.fill();
+  
+  // Wanderer Robe / Body
   g.fillStyle='#2fd3b7';g.beginPath();g.ellipse(sx,sy-16,10,14,0,0,Math.PI*2);g.fill();
+  
+  // Hood / Head piece
+  g.fillStyle='#1b9d94';g.beginPath();g.arc(sx,sy-24,8,0,Math.PI*2);g.fill();
+
+  // ✨ Blinking Symmetrical Eyes Animation ✨
+  var blink = Math.sin(T * 3.5) > 0.9 ? 0.15 : 1; // Blinks periodically
+  g.fillStyle='#ffffff';
+  g.shadowColor='#7af0ff'; g.shadowBlur=8;
+  var eyeOffsetX = f * 2;
+  // Left and Right Symmetrical Eyes
+  g.fillRect(sx - 3 + eyeOffsetX, sy - 26, 2, 4 * blink);
+  g.fillRect(sx + 1 + eyeOffsetX, sy - 26, 2, 4 * blink);
+  g.shadowBlur=0;
+
+  // Floating Lantern Orb
   g.fillStyle='#ffe27a';g.shadowColor='#ffe27a';g.shadowBlur=25;
   g.beginPath();g.arc(sx+f*16,sy-20,8,0,Math.PI*2);g.fill();
   g.shadowBlur=0;
@@ -149,14 +164,12 @@ function draw(){
     drawVectorObject(g,o.t,o.v,sx,sy+(o.t==8?Math.sin(T*3+o.x)*6:0));
   }
 
-  // Draw Critters (Glowing Fireflies)
   for(i=0;i<critters.length;i++){
     var cr=critters[i], csx=Math.round(cr.x-ox), csy=Math.round(cr.y-oy);
     g.fillStyle=cr.c; g.shadowColor=cr.c; g.shadowBlur=12;
     g.beginPath(); g.arc(csx, csy, 4, 0, Math.PI*2); g.fill();
   }
 
-  // Draw Enemies (Shadow Wraiths)
   for(i=0;i<enemies.length;i++){
     var en=enemies[i], esx=Math.round(en.x-ox), esy=Math.round(en.y-oy);
     g.fillStyle='rgba(138, 43, 226, 0.7)'; g.shadowColor='#8a2be2'; g.shadowBlur=15;
