@@ -1,40 +1,85 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Lantern Wanderer - Symphony Edition</title>
+<title>Lantern Wanderer - Crafted Edition</title>
 <style>
 html,body{margin:0;height:100%;background:#04020a;overflow:hidden;color:#fff;font-family:system-ui,sans-serif}
 canvas{display:block;width:100%;height:100%;object-fit:contain}
-.h{position:fixed;top:0;padding:2vh 2vw;font-weight:700;font-size:3vh;text-shadow:0 0 1.5vh rgba(122,240,255,0.6)}
+.h{position:fixed;top:0;padding:2vh 2vw;font-weight:700;font-size:2.8vh;text-shadow:0 0 1.5vh rgba(122,240,255,0.6)}
 #a{left:0}#b{right:0;color:#ffe27a;text-align:right}
-#k{display:inline-block;margin-top:1vh;padding:.8vh 1.4vh;border-radius:1.5vh;background:#000c;border:1px solid #7af0ff44;font-size:2.4vh;font-weight:600}
-#k b{color:#7af0ff;font-size:4.2vh;letter-spacing:.8vh}
+#k{display:inline-block;margin-top:1vh;padding:.8vh 1.4vh;border-radius:1.5vh;background:#000c;border:1px solid #7af0ff44;font-size:2.2vh;font-weight:600}
+#k b{color:#7af0ff;font-size:3.8vh;letter-spacing:.8vh}
 .fbar{display:block;font-size:2vh;margin-top:.5vh;color:#7af0ff}
+.inv{display:block;font-size:1.9vh;margin-top:.6vh;color:#e0d4ff;letter-spacing:.1vw}
+#craft{position:fixed;bottom:2vh;left:50%;transform:translateX(-50%);display:flex;gap:1.2vw;z-index:10}
+.cb{background:#090518cc;border:1px solid #7af0ff55;color:#fff;padding:1vh 1.4vw;border-radius:1.2vh;font-size:1.8vh;font-weight:600;cursor:pointer;transition:all .15s;backdrop-filter:blur(4px);text-align:center}
+.cb:hover{border-color:#ffe27a;transform:translateY(-2px)}
+.cb.ready{border-color:#7af0ff;box-shadow:0 0 12px rgba(122,240,255,0.35)}
+.cb small{display:block;font-size:1.4vh;color:#aaa;margin-top:.3vh}
+.cb.ready small{color:#ffe27a}
 </style></head><body>
 <canvas id="c" width="960" height="540"></canvas>
 <div class="h" id="a">✨ Lantern Wanderer<br><span id="k"></span></div>
-<div class="h" id="b">✦ Shards: <span id="n">0</span><br><span class="fbar">⛽ Energy: <span id="f">100</span>%</span></div>
+<div class="h" id="b">
+  ✦ Shards: <span id="n">0</span>
+  <span class="fbar">⛽ Energy: <span id="f">100</span>/<span id="mf">100</span></span>
+  <span class="inv">🌸 <span id="iF">0</span> &nbsp; 💎 <span id="iC">0</span> &nbsp; ✦ <span id="iS">0</span></span>
+</div>
+<div id="craft">
+  <button class="cb" id="u1" onclick="craft(1)">[1] Lantern Core Lv.<span id="lv1">1</span><small>3🌸 + 1💎 (+Max Energy)</small></button>
+  <button class="cb" id="u2" onclick="craft(2)">[2] Kinetic Boots Lv.<span id="lv2">1</span><small>2🌸 + 2💎 (+Speed/Dash)</small></button>
+  <button class="cb" id="u3" onclick="craft(3)">[3] Astral Lens Lv.<span id="lv3">1</span><small>2💎 + 2✦ (+Pulse/Glow)</small></button>
+</div>
 <script src="https://cdn.jsdelivr.net/npm/peerjs@1.3.2/dist/peerjs.min.js"></script>
 <script>
-var W=960,H=540,TS=32,CH=12,CS=384,g=document.getElementById('c').getContext('2d'),kEl=document.getElementById('k'),nEl=document.getElementById('n'),fEl=document.getElementById('f');
+var W=960,H=540,TS=32,CH=12,CS=384,g=document.getElementById('c').getContext('2d'),kEl=document.getElementById('k'),nEl=document.getElementById('n'),fEl=document.getElementById('f'),mfEl=document.getElementById('mf');
 var SOL={1:1,3:1,4:1,6:1,7:1},CK={},GOT={},ps=[],vis=[],critters=[],enemies=[],K={},IN={x:0,y:0,a:0,b:0};
 var T=5,mv=0,face=1,dash=0,cool=0,pulse=0,score=0,fuel=100,maxFuel=100,pa=0,pb=0,ev=0,lastMsg=-9e9;
+
+/* Inventory & Upgrade Stats */
+var inv={f:0,c:0,s:0},upg={1:1,2:1,3:1};
+var baseSpeed=140,dashCool=0.7,pulseRad=150,glowRad=120;
 
 /* Web Audio API Sound Synthesizer */
 var AC=window.AudioContext||window.webkitAudioContext,actx=null;
 function initAudio(){if(!actx)actx=new AC()}
 function playTone(freq,type,dur,vol){
   if(!actx)return;try{
-    var o=actx.createOscillator(),g=actx.createGain();
+    var o=actx.createOscillator(),gn=actx.createGain();
     o.type=type;o.frequency.value=freq;
-    g.gain.setValueAtTime(vol,actx.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.001,actx.currentTime+dur);
-    o.connect(g);g.connect(actx.destination);
+    gn.gain.setValueAtTime(vol,actx.currentTime);
+    gn.gain.exponentialRampToValueAtTime(0.001,actx.currentTime+dur);
+    o.connect(gn);gn.connect(actx.destination);
     o.start();o.stop(actx.currentTime+dur);
   }catch(e){}
 }
 function sfxCollect(){initAudio();playTone(523.25,'sine',0.15,0.2);setTimeout(function(){playTone(659.25,'sine',0.2,0.2)},80);setTimeout(function(){playTone(783.99,'sine',0.3,0.3)},160)}
 function sfxDash(){initAudio();playTone(150,'triangle',0.2,0.3);playTone(300,'sine',0.15,0.2)}
 function sfxPulse(){initAudio();playTone(110,'sine',0.4,0.4);setTimeout(function(){playTone(220,'triangle',0.5,0.3)},100)}
+function sfxCraft(){initAudio();[440,554.37,659.25,880].forEach(function(fr,idx){setTimeout(function(){playTone(fr,'triangle',0.3,0.25)},idx*70)})}
+
+function updateUI(){
+  document.getElementById('iF').textContent=inv.f;
+  document.getElementById('iC').textContent=inv.c;
+  document.getElementById('iS').textContent=inv.s;
+  mfEl.textContent=maxFuel;
+  document.getElementById('u1').className='cb'+(inv.f>=3&&inv.c>=1?' ready':'');
+  document.getElementById('u2').className='cb'+(inv.f>=2&&inv.c>=2?' ready':'');
+  document.getElementById('u3').className='cb'+(inv.c>=2&&inv.s>=2?' ready':'');
+}
+
+function craft(id){
+  initAudio();
+  var ok=false;
+  if(id==1&&inv.f>=3&&inv.c>=1){inv.f-=3;inv.c-=1;upg[1]++;maxFuel+=25;fuel=maxFuel;ok=true}
+  else if(id==2&&inv.f>=2&&inv.c>=2){inv.f-=2;inv.c-=2;upg[2]++;baseSpeed+=22;dashCool=Math.max(0.25,dashCool-0.1);ok=true}
+  else if(id==3&&inv.c>=2&&inv.s>=2){inv.c-=2;inv.s-=2;upg[3]++;pulseRad+=45;glowRad+=30;ok=true}
+  if(ok){
+    document.getElementById('lv'+id).textContent=upg[id];
+    sfxCraft();
+    for(var j=0;j<28;j++)P(px,py-10,(Math.random()-.5)*220,(Math.random()-.5)*220,.9,'#ffe27a',5);
+    updateUI();
+  }
+}
 
 function h2(x,y,s){var n=Math.imul(x|0,374761393)^Math.imul(y|0,668265263)^Math.imul(s|0,1274126177);n=Math.imul(n^n>>>13,1274126177);return((n^n>>>16)>>>0)/4294967296}
 function vn(x,y,s){var xi=Math.floor(x),yi=Math.floor(y),u=x-xi,v=y-yi;u=u*u*(3-2*u);v=v*v*(3-2*v);return(h2(xi,yi,s)*(1-u)+h2(xi+1,yi,s)*u)*(1-v)+(h2(xi,yi+1,s)*(1-u)+h2(xi+1,yi+1,s)*u)*v}
@@ -69,7 +114,13 @@ var px=0,py=0;for(var i0=0;i0<400&&(blk(px,py)||bio(Math.floor(px/TS),Math.floor
 var cx=px-W/2,cy=py-H/2,OFF=[];for(var u=-2;u<3;u++)for(var v=-2;v<3;v++)OFF.push([u,v]);OFF.sort(function(p,q){return p[0]*p[0]+p[1]*p[1]-q[0]*q[0]-q[1]*q[1]});
 
 var KEYS={37:1,38:1,39:1,40:1,32:1,13:1,65:1,68:1,83:1,87:1,69:1};
-addEventListener('keydown',function(e){if(KEYS[e.keyCode]){K[e.keyCode]=1;e.preventDefault();initAudio()}});
+addEventListener('keydown',function(e){
+  if(KEYS[e.keyCode]){K[e.keyCode]=1;e.preventDefault();initAudio()}
+  if(e.key=='1')craft(1);
+  if(e.key=='2')craft(2);
+  if(e.key=='3')craft(3);
+});
+addEventListener('keyup',function(e){K[e.keyCode]=0});
 addEventListener('click',function(){initAudio()});
 
 function upd(dt){var i,j,o,net=performance.now()-lastMsg<1500,ix,iy,ia,ib;T+=dt;
@@ -78,11 +129,11 @@ fEl.textContent=Math.ceil(fuel);
 
 if(net){ix=IN.x||0;iy=IN.y||0;ia=IN.a;ib=IN.b}else{ix=(K[39]||K[68]?1:0)-(K[37]||K[65]?1:0);iy=(K[40]||K[83]?1:0)-(K[38]||K[87]?1:0);ia=K[32];ib=K[13]||K[69]}
 var l=Math.hypot(ix,iy);if(l>1){ix/=l;iy/=l}if(l<.12){ix=iy=0}
-if(ia&&!pa&&cool<=0&&fuel>5){dash=.22;cool=.7;fuel=Math.max(0,fuel-3);sfxDash()}
+if(ia&&!pa&&cool<=0&&fuel>5){dash=.22;cool=dashCool;fuel=Math.max(0,fuel-3);sfxDash()}
 if(ib&&!pb&&pulse<=0){pulse=.7;sfxPulse()}
 pa=ia;pb=ib;dash-=dt;cool-=dt;pulse-=dt;
 
-var sh=bio(Math.floor(px/TS),Math.floor((py-1)/TS))==1,sp=(dash>0?340:140)*(sh?.6:1)*(fuel<=0?.5:1);mv=ix||iy;
+var sh=bio(Math.floor(px/TS),Math.floor((py-1)/TS))==1,sp=(dash>0?baseSpeed*2.4:baseSpeed)*(sh?.6:1)*(fuel<=0?.5:1);mv=ix||iy;
 if(mv){if(ix)face=ix>0?1:-1;var nx=px+ix*sp*dt,ny=py+iy*sp*dt;if(!blk(nx,py))px=nx;if(!blk(px,ny))py=ny;
 if(dash>0)P(px,py-12,0,0,.4,'#7af0ff',5);if(sh&&Math.random()<dt*20)P(px,py,0,0,.5,'#e6faff',3)}
 cx+=(px-W/2-cx)*Math.min(1,dt*6);cy+=(py-H/2-cy)*Math.min(1,dt*6);
@@ -104,8 +155,8 @@ for(i=critters.length-1;i>=0;i--){
 for(i=enemies.length-1;i>=0;i--){
   var en=enemies[i];
   var edx=px-en.x, edy=py-en.y, ed=Math.hypot(edx,edy)||1;
-  if(pulse>0 && ed<180){
-    en.x -= edx/ed*300*dt; en.y -= edy/ed*300*dt;
+  if(pulse>0 && ed<pulseRad+30){
+    en.x -= edx/ed*320*dt; en.y -= edy/ed*320*dt;
   } else {
     en.x += edx/ed*55*dt; en.y += edy/ed*55*dt;
   }
@@ -116,11 +167,13 @@ for(i=enemies.length-1;i>=0;i--){
 }
 
 for(i=0;i<vis.length;i++){o=vis[i];if(o.d)continue;var dx=px-o.x,dy=py-8-o.y,d=Math.hypot(dx,dy)||1;
-if(pulse>0&&d<150){o.x+=dx/d*250*dt;o.y+=dy/d*250*dt}
+if(pulse>0&&d<pulseRad){o.x+=dx/d*250*dt;o.y+=dy/d*250*dt}
 if(d<20){
   o.d=1;GOT[o.k]=1; sfxCollect();
-  if(o.t==8){score++;nEl.textContent=score;fuel=Math.min(maxFuel,fuel+35);for(j=0;j<20;j++)P(o.x,o.y-8,(Math.random()-.5)*180,(Math.random()-.5)*180-40,.8,'#ffe27a',4)}
-  else{fuel=Math.min(maxFuel,fuel+20);for(j=0;j<12;j++)P(o.x,o.y-8,(Math.random()-.5)*100,(Math.random()-.5)*100-20,.6,'#ff7ad9',3)}
+  if(o.t==8){score++;nEl.textContent=score;inv.s++;fuel=Math.min(maxFuel,fuel+35);for(j=0;j<20;j++)P(o.x,o.y-8,(Math.random()-.5)*180,(Math.random()-.5)*180-40,.8,'#ffe27a',4)}
+  else if(o.t==4){inv.c++;fuel=Math.min(maxFuel,fuel+25);for(j=0;j<14;j++)P(o.x,o.y-8,(Math.random()-.5)*120,(Math.random()-.5)*120-25,.7,'#4fe3ff',3)}
+  else if(o.t==2||o.t==5){inv.f++;fuel=Math.min(maxFuel,fuel+18);for(j=0;j<12;j++)P(o.x,o.y-8,(Math.random()-.5)*100,(Math.random()-.5)*100-20,.6,'#ff7ad9',3)}
+  updateUI();
 }}
 
 if(Math.random()<dt*12)P(cx+Math.random()*W,cy+Math.random()*H,(Math.random()<.5?-12:12),(Math.random()<.5?-12:12),5,Math.random()<.5?'#ffe27a':'#7af0ff',3);
@@ -190,7 +243,7 @@ function draw(){
   g.shadowBlur=0;
 
   if(pulse>0){
-    g.strokeStyle='rgba(120,245,255,'+pulse+')';g.lineWidth=3;g.beginPath();g.arc(Math.round(px-ox),Math.round(py-oy-8),(1-pulse/.7)*150,0,Math.PI*2);g.stroke();
+    g.strokeStyle='rgba(120,245,255,'+pulse+')';g.lineWidth=3;g.beginPath();g.arc(Math.round(px-ox),Math.round(py-oy-8),(1-pulse/.7)*pulseRad,0,Math.PI*2);g.stroke();
   }
 
   var sk=Math.sin(T*.07),a=Math.min(.6,Math.max(0,(.3-sk)*.9)),ni=Math.min(1,Math.max(0,.4-sk*1.6));
@@ -205,9 +258,10 @@ function draw(){
     grad.addColorStop(0,'rgba(122,240,255,0.3)');grad.addColorStop(1,'rgba(0,0,0,0)');
     g.fillStyle=grad;g.beginPath();g.arc(gx,gy,60,0,Math.PI*2);g.fill();
   }
-  var hgrad=g.createRadialGradient(px-ox,py-oy-12,5,px-ox,py-oy-12,(fuel<=0?20:120));
+  var curGlow=(fuel<=0?20:glowRad);
+  var hgrad=g.createRadialGradient(px-ox,py-oy-12,5,px-ox,py-oy-12,curGlow);
   hgrad.addColorStop(0,'rgba(255,226,122,0.8)');hgrad.addColorStop(1,'rgba(0,0,0,0)');
-  g.fillStyle=hgrad;g.beginPath();g.arc(px-ox,py-oy-12,120,0,Math.PI*2);g.fill();
+  g.fillStyle=hgrad;g.beginPath();g.arc(px-ox,py-oy-12,curGlow,0,Math.PI*2);g.fill();
 
   for(i=0;i<ps.length;i++){var r=ps[i];g.globalAlpha=Math.max(0,r.l/r.m);g.fillStyle=r.c;g.fillRect(r.x-ox,r.y-oy,r.s,r.s)}
   g.globalAlpha=1;g.globalCompositeOperation='source-over';
@@ -217,12 +271,12 @@ var last=0;function loop(ms){var dt=Math.min(.05,(ms-last)/1000||0);last=ms;upd(
 var code,peer,conn,tr=0;
 function rc(){var s='',A='ABCDEFGHJKMNPQRSTUVWXYZ';for(var i=0;i<4;i++)s+=A.charAt(Math.random()*A.length|0);return s}
 try{code=localStorage.getItem('lw')}catch(e){}code=code||rc();
-function ui(){if(typeof Peer=='undefined'){kEl.textContent='Keyboard mode: arrows + Space/Enter';return}
+function ui(){if(typeof Peer=='undefined'){kEl.textContent='Keyboard: Arrows + Space/Enter | 1-3 Craft';return}
 kEl.innerHTML=performance.now()-lastMsg<1500?'📱 connected ✓':peer&&peer.open?'📱 Open <b>'+location.host+'/pad.html</b> and enter <b>'+code+'</b>':'📱 connecting…'}
 function start(){if(typeof Peer=='undefined')return;peer=new Peer('lw-'+code);
 peer.on('open',function(){try{localStorage.setItem('lw',code)}catch(e){}});
 peer.on('error',function(e){if(e.type=='unavailable-id'){peer.destroy();if(++tr>4)code=rc();setTimeout(start,1500)}});
 peer.on('disconnected',function(){peer.reconnect()});
 peer.on('connection',function(c){if(conn)conn.close();conn=c;c.on('data',function(d){IN=d;lastMsg=performance.now()});c.on('close',function(){if(conn==c){conn=null;IN={x:0,y:0,a:0,b:0}}})})}
-start();setInterval(ui,700);ui();requestAnimationFrame(loop);
+start();setInterval(ui,700);ui();updateUI();requestAnimationFrame(loop);
 </script></body></html>
