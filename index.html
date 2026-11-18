@@ -1,6 +1,6 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Lantern Wanderer - Luminous Geometric Edition</title>
+<title>Lantern Wanderer - Ecosystem Edition</title>
 <style>
 html,body{margin:0;height:100%;background:#04020a;overflow:hidden;color:#fff;font-family:system-ui,sans-serif}
 canvas{display:block;width:100%;height:100%;object-fit:contain}
@@ -16,21 +16,19 @@ canvas{display:block;width:100%;height:100%;object-fit:contain}
 <script src="https://cdn.jsdelivr.net/npm/peerjs@1.3.2/dist/peerjs.min.js"></script>
 <script>
 var W=960,H=540,TS=32,CH=12,CS=384,g=document.getElementById('c').getContext('2d'),kEl=document.getElementById('k'),nEl=document.getElementById('n'),fEl=document.getElementById('f');
-var SOL={1:1,3:1,4:1,6:1,7:1},CK={},GOT={},ps=[],vis=[],K={},IN={x:0,y:0,a:0,b:0};
+var SOL={1:1,3:1,4:1,6:1,7:1},CK={},GOT={},ps=[],vis=[],critters=[],enemies=[],K={},IN={x:0,y:0,a:0,b:0};
 var T=5,mv=0,face=1,dash=0,cool=0,pulse=0,score=0,fuel=100,maxFuel=100,pa=0,pb=0,ev=0,lastMsg=-9e9;
+
 function h2(x,y,s){var n=Math.imul(x|0,374761393)^Math.imul(y|0,668265263)^Math.imul(s|0,1274126177);n=Math.imul(n^n>>>13,1274126177);return((n^n>>>16)>>>0)/4294967296}
 function vn(x,y,s){var xi=Math.floor(x),yi=Math.floor(y),u=x-xi,v=y-yi;u=u*u*(3-2*u);v=v*v*(3-2*v);return(h2(xi,yi,s)*(1-u)+h2(xi+1,yi,s)*u)*(1-v)+(h2(xi,yi+1,s)*(1-u)+h2(xi+1,yi+1,s)*u)*v}
 function fb(x,y,s){return vn(x,y,s)*.55+vn(x*2.1,y*2.1,s+1)*.3+vn(x*4.3,y*4.3,s+2)*.15}
-/* biomes: 0 deep water, 1 shallows, 2 sand, 3 meadow, 4 forest, 5 stone, 6 glow-meadow */
 function bio(x,y){var e=fb(x*.045,y*.045,7),m=fb(x*.04+50,y*.04+50,11);if(e<.37)return 0;if(e<.42)return 1;if(e<.45)return 2;if(e>.64)return 5;return m>.58?4:m<.4?6:3}
-/* objects: 1 geometric pine, 2 luminous flower, 3 crystal rock, 4 prism crystal, 5 glowing pod, 6 sacred geometry tree, 7 monolith, 8 shard */
 function oa(x,y,b){if(b<2)return 0;var r=h2(x,y,3),q=h2(x,y,9),v=h2(x,y,5)*3|0,t=0;
 if(q<.002&&b!=2)return[7,0];
 if(b==3)t=r<.035?1:r<.1?2:0;else if(b==4)t=r<.24?1:r<.28?5:0;else if(b==6)t=r<.05?6:r<.14?5:r<.3?2:r<.33?4:0;else if(b==5)t=r<.08?3:r<.12?4:0;else t=r<.015?3:0;
 if(!t&&h2(x,y,13)<.012)return[8,0];return t?[t,v]:0}
 function sol(tx,ty){var b=bio(tx,ty);if(b==0)return 1;var o=oa(tx,ty,b);return o&&SOL[o[0]]}
 function blk(x,y){var a=Math.floor((x-8)/TS),b=Math.floor((x+8)/TS),c=Math.floor(y/TS),d=Math.floor((y-6)/TS);return sol(a,c)||sol(b,c)||sol(a,d)||sol(b,d)}
-function R(c,col,x,y,w,h){c.fillStyle=col;c.fillRect(x,y,w,h)}
 function mk(w,h,f){var c=document.createElement('canvas');c.width=w;c.height=h;f(c.getContext('2d'));return c}
 
 var PAL=[[15,45,85],[30,95,130],[215,185,130],[60,130,65],[28,75,52],[80,75,105],[45,30,95]];
@@ -40,9 +38,7 @@ C.cv=mk(CS,CS,function(c){
   for(var j=0;j<CH;j++)for(var i=0;i<CH;i++){
     var tx=cx*CH+i,ty=cy*CH+j,b=bio(tx,ty),p=PAL[b],d=(h2(tx,ty,1)-.5)*18;
     var X=i*TS,Y=j*TS;
-    c.fillStyle='rgb('+Math.round(p[0]+d)+','+Math.round(p[1]+d)+','+Math.round(p[2]+d)+')';
-    c.fillRect(X,Y,TS,TS);
-    // Geometric grid accent lines for luminous look
+    c.fillStyle='rgb('+Math.round(p[0]+d)+','+Math.round(p[1]+d)+','+Math.round(p[2]+d)+')';c.fillRect(X,Y,TS,TS);
     c.strokeStyle='rgba(255,255,255,0.03)';c.lineWidth=1;c.strokeRect(X,Y,TS,TS);
     var o=oa(tx,ty,b),kk=tx+','+ty;
     if(o&&(o[0]!=8||!GOT[kk]))C.objs.push({t:o[0],v:o[1],k:kk,x:tx*TS+TS/2+(h2(tx,ty,50)-.5)*12,y:ty*TS+TS-2});
@@ -51,6 +47,7 @@ C.cv=mk(CS,CS,function(c){
 return C}
 
 function P(x,y,vx,vy,l,c,s){if(ps.length<300)ps.push({x:x,y:y,vx:vx,vy:vy,l:l,m:l,c:c,s:s})}
+
 var px=0,py=0;for(var i0=0;i0<400&&(blk(px,py)||bio(Math.floor(px/TS),Math.floor(py/TS))<3);i0++){px+=TS;if(i0%25==24){px-=TS*25;py+=TS*3}}
 var cx=px-W/2,cy=py-H/2,OFF=[];for(var u=-2;u<3;u++)for(var v=-2;v<3;v++)OFF.push([u,v]);OFF.sort(function(p,q){return p[0]*p[0]+p[1]*p[1]-q[0]*q[0]-q[1]*q[1]});
 
@@ -65,10 +62,42 @@ fEl.textContent=Math.ceil(fuel);
 if(net){ix=IN.x||0;iy=IN.y||0;ia=IN.a;ib=IN.b}else{ix=(K[39]||K[68]?1:0)-(K[37]||K[65]?1:0);iy=(K[40]||K[83]?1:0)-(K[38]||K[87]?1:0);ia=K[32];ib=K[13]||K[69]}
 var l=Math.hypot(ix,iy);if(l>1){ix/=l;iy/=l}if(l<.12){ix=iy=0}
 if(ia&&!pa&&cool<=0&&fuel>5){dash=.22;cool=.7;fuel=Math.max(0,fuel-3)}if(ib&&!pb&&pulse<=0){pulse=.7}pa=ia;pb=ib;dash-=dt;cool-=dt;pulse-=dt;
+
 var sh=bio(Math.floor(px/TS),Math.floor((py-1)/TS))==1,sp=(dash>0?340:140)*(sh?.6:1)*(fuel<=0?.5:1);mv=ix||iy;
 if(mv){if(ix)face=ix>0?1:-1;var nx=px+ix*sp*dt,ny=py+iy*sp*dt;if(!blk(nx,py))px=nx;if(!blk(px,ny))py=ny;
 if(dash>0)P(px,py-12,0,0,.4,'#7af0ff',5);if(sh&&Math.random()<dt*20)P(px,py,0,0,.5,'#e6faff',3)}
 cx+=(px-W/2-cx)*Math.min(1,dt*6);cy+=(py-H/2-cy)*Math.min(1,dt*6);
+
+// Spawn Critters & Enemies procedurally around player
+if(Math.random()<dt*2 && critters.length<12){
+  critters.push({x:px+(Math.random()-.5)*600, y:py+(Math.random()-.5)*400, vx:(Math.random()-.5)*20, vy:(Math.random()-.5)*20, c:Math.random()<.5?'#7af0ff':'#ff8fb8'});
+}
+var sk=Math.sin(T*.07);
+if(sk<-0.1 && Math.random()<dt*1.5 && enemies.length<6){
+  enemies.push({x:px+(Math.random()>.5?500:-500), y:py+(Math.random()>.5?300:-300), st:0});
+}
+
+// Update Critters
+for(i=critters.length-1;i>=0;i--){
+  var cr=critters[i]; cr.x+=cr.vx*dt; cr.y+=cr.vy*dt;
+  var d=Math.hypot(px-cr.x, py-cr.y);
+  if(d<25){ fuel=Math.min(maxFuel,fuel+5); critters.splice(i,1); for(j=0;j<8;j++)P(cr.x,cr.y,(Math.random()-.5)*60,(Math.random()-.5)*60,.5,'#7af0ff',3); }
+}
+
+// Update Enemies (Shadow Wraiths)
+for(i=enemies.length-1;i>=0;i--){
+  var en=enemies[i];
+  var edx=px-en.x, edy=py-en.y, ed=Math.hypot(edx,edy)||1;
+  if(pulse>0 && ed<180){
+    en.x -= edx/ed*300*dt; en.y -= edy/ed*300*dt; // Repelled by pulse!
+  } else {
+    en.x += edx/ed*55*dt; en.y += edy/ed*55*dt;
+  }
+  if(ed<18){
+    fuel=Math.max(0,fuel-dt*15); // Drain fuel on contact!
+    if(Math.random()<dt*10)P(px,py,(Math.random()-.5)*80,(Math.random()-.5)*80,.4,'#ff5fa2',4);
+  }
+}
 
 for(i=0;i<vis.length;i++){o=vis[i];if(o.d)continue;var dx=px-o.x,dy=py-8-o.y,d=Math.hypot(dx,dy)||1;
 if(pulse>0&&d<150){o.x+=dx/d*250*dt;o.y+=dy/d*250*dt}
@@ -84,50 +113,23 @@ var pcx=Math.floor(px/CS),pcy=Math.floor(py/CS);
 for(i=0;i<OFF.length;i++)if(!CK[(pcx+OFF[i][0])+','+(pcy+OFF[i][1])]){chunk(pcx+OFF[i][0],pcy+OFF[i][1]);break}
 if((ev-=dt)<0){ev=3;for(var key in CK){var pp=key.split(',');if(Math.abs(pp[0]-pcx)>4||Math.abs(pp[1]-pcy)>4)delete CK[key]}}}
 
-/* High-res Geometric Vector Object & Character Renderers */
 function drawVectorObject(c,t,v,sx,sy){
   c.save();c.translate(sx,sy);
-  if(t==1){ // Geometric Triangle Pine
-    c.fillStyle='#1c4f4a';c.beginPath();c.moveTo(0,-45);c.lineTo(20,0);c.lineTo(-20,0);c.fill();
-    c.fillStyle='#2f8a72';c.beginPath();c.moveTo(0,-30);c.lineTo(14,0);c.lineTo(-14,0);c.fill();
-    c.fillStyle='#3d2c4a';c.fillRect(-3,-5,6,5);
-  }else if(t==2){ // Luminous Geometric Flower
-    c.fillStyle=v%2?'#ff8fb8':'#ffd166';
-    for(var i=0;i<5;i++){c.rotate(Math.PI*2/5);c.beginPath();c.ellipse(0,-8,4,8,0,0,Math.PI*2);c.fill();}
-    c.fillStyle='#fff';c.beginPath();c.arc(0,0,3,0,Math.PI*2);c.fill();
-  }else if(t==3){ // Crystal Rock Polygon
-    c.fillStyle='#403b66';c.beginPath();c.moveTo(0,-20);c.lineTo(15,0);c.lineTo(-15,0);c.closePath();c.fill();
-    c.fillStyle='#7a76a0';c.beginPath();c.moveTo(0,-20);c.lineTo(8,0);c.lineTo(-10,0);c.closePath();c.fill();
-  }else if(t==4){ // Prism Crystal Gem
-    var col=v%2?'#ff7ad9':'#4fe3ff';
-    c.fillStyle=col;c.shadowColor=col;c.shadowBlur=15;
-    c.beginPath();c.moveTo(0,-28);c.lineTo(12,-10);c.lineTo(0,0);c.lineTo(-12,-10);c.closePath();c.fill();
-  }else if(t==5){ // Glowing Pod Mushroom
-    c.fillStyle=v%2?'#7bffe0':'#ff7be0';c.shadowColor=c.fillStyle;c.shadowBlur=12;
-    c.beginPath();c.arc(0,-8,10,Math.PI,0);c.fill();
-    c.fillStyle='#fff';c.fillRect(-2,-8,4,8);
-  }else if(t==6){ // Sacred Geometry Dream Tree
-    c.fillStyle='#6a52b8';c.shadowColor='#c2a8ff';c.shadowBlur=20;
-    c.beginPath();c.arc(0,-30,22,0,Math.PI*2);c.fill();
-    c.fillStyle='#e9d8ff';c.fillRect(-4,-15,8,20);
-  }else if(t==7){ // Monolith
-    c.fillStyle='#2b2845';c.fillRect(-10,-55,20,55);
-    c.fillStyle='#7ffbff';c.shadowColor='#7ffbff';c.shadowBlur=20;
-    c.fillRect(-3,-40,6,20);c.fillRect(-3,-15,6,10);
-  }else if(t==8){ // Floating Geometric Star Shard
-    c.fillStyle='#ffe27a';c.shadowColor='#ffe27a';c.shadowBlur=20;
-    c.beginPath();c.moveTo(0,-14);c.lineTo(10,0);c.lineTo(0,14);c.lineTo(-10,0);c.closePath();c.fill();
-    c.fillStyle='#fff';c.beginPath();c.moveTo(0,-6);c.lineTo(4,0);c.lineTo(0,6);c.lineTo(-4,0);c.closePath();c.fill();
-  }
+  if(t==1){c.fillStyle='#1c4f4a';c.beginPath();c.moveTo(0,-45);c.lineTo(20,0);c.lineTo(-20,0);c.fill();c.fillStyle='#2f8a72';c.beginPath();c.moveTo(0,-30);c.lineTo(14,0);c.lineTo(-14,0);c.fill();c.fillStyle='#3d2c4a';c.fillRect(-3,-5,6,5);}
+  else if(t==2){c.fillStyle=v%2?'#ff8fb8':'#ffd166';for(var i=0;i<5;i++){c.rotate(Math.PI*2/5);c.beginPath();c.ellipse(0,-8,4,8,0,0,Math.PI*2);c.fill();}c.fillStyle='#fff';c.beginPath();c.arc(0,0,3,0,Math.PI*2);c.fill();}
+  else if(t==3){c.fillStyle='#403b66';c.beginPath();c.moveTo(0,-20);c.lineTo(15,0);c.lineTo(-15,0);c.closePath();c.fill();c.fillStyle='#7a76a0';c.beginPath();c.moveTo(0,-20);c.lineTo(8,0);c.lineTo(-10,0);c.closePath();c.fill();}
+  else if(t==4){var col=v%2?'#ff7ad9':'#4fe3ff';c.fillStyle=col;c.shadowColor=col;c.shadowBlur=15;c.beginPath();c.moveTo(0,-28);c.lineTo(12,-10);c.lineTo(0,0);c.lineTo(-12,-10);c.closePath();c.fill();}
+  else if(t==5){c.fillStyle=v%2?'#7bffe0':'#ff7be0';c.shadowColor=c.fillStyle;c.shadowBlur=12;c.beginPath();c.arc(0,-8,10,Math.PI,0);c.fill();c.fillStyle='#fff';c.fillRect(-2,-8,4,8);}
+  else if(t==6){c.fillStyle='#6a52b8';c.shadowColor='#c2a8ff';c.shadowBlur=20;c.beginPath();c.arc(0,-30,22,0,Math.PI*2);c.fill();c.fillStyle='#e9d8ff';c.fillRect(-4,-15,8,20);}
+  else if(t==7){c.fillStyle='#2b2845';c.fillRect(-10,-55,20,55);c.fillStyle='#7ffbff';c.shadowColor='#7ffbff';c.shadowBlur=20;c.fillRect(-3,-40,6,20);c.fillRect(-3,-15,6,10);}
+  else if(t==8){c.fillStyle='#ffe27a';c.shadowColor='#ffe27a';c.shadowBlur=20;c.beginPath();c.moveTo(0,-14);c.lineTo(10,0);c.lineTo(0,14);c.lineTo(-10,0);c.closePath();c.fill();c.fillStyle='#fff';c.beginPath();c.moveTo(0,-6);c.lineTo(4,0);c.lineTo(0,6);c.lineTo(-4,0);c.closePath();c.fill();}
   c.restore();
 }
 
 function hero(sx,sy){
   var f=face;
   g.fillStyle='rgba(0,0,0,0.4)';g.beginPath();g.ellipse(sx,sy,10,4,0,0,Math.PI*2);g.fill();
-  // Body & Luminous Robe
   g.fillStyle='#2fd3b7';g.beginPath();g.ellipse(sx,sy-16,10,14,0,0,Math.PI*2);g.fill();
-  // Floating Glowing Lantern (Geometric Orb)
   g.fillStyle='#ffe27a';g.shadowColor='#ffe27a';g.shadowBlur=25;
   g.beginPath();g.arc(sx+f*16,sy-20,8,0,Math.PI*2);g.fill();
   g.shadowBlur=0;
@@ -147,11 +149,26 @@ function draw(){
     drawVectorObject(g,o.t,o.v,sx,sy+(o.t==8?Math.sin(T*3+o.x)*6:0));
   }
 
+  // Draw Critters (Glowing Fireflies)
+  for(i=0;i<critters.length;i++){
+    var cr=critters[i], csx=Math.round(cr.x-ox), csy=Math.round(cr.y-oy);
+    g.fillStyle=cr.c; g.shadowColor=cr.c; g.shadowBlur=12;
+    g.beginPath(); g.arc(csx, csy, 4, 0, Math.PI*2); g.fill();
+  }
+
+  // Draw Enemies (Shadow Wraiths)
+  for(i=0;i<enemies.length;i++){
+    var en=enemies[i], esx=Math.round(en.x-ox), esy=Math.round(en.y-oy);
+    g.fillStyle='rgba(138, 43, 226, 0.7)'; g.shadowColor='#8a2be2'; g.shadowBlur=15;
+    g.beginPath(); g.arc(esx, esy-10, 10, 0, Math.PI*2); g.fill();
+    g.fillStyle='#ff5fa2'; g.fillRect(esx-3, esy-14, 2, 2); g.fillRect(esx+1, esy-14, 2, 2);
+  }
+  g.shadowBlur=0;
+
   if(pulse>0){
     g.strokeStyle='rgba(120,245,255,'+pulse+')';g.lineWidth=3;g.beginPath();g.arc(Math.round(px-ox),Math.round(py-oy-8),(1-pulse/.7)*150,0,Math.PI*2);g.stroke();
   }
 
-  // Atmospheric Luminous Lighting Overlay
   var sk=Math.sin(T*.07),a=Math.min(.6,Math.max(0,(.3-sk)*.9)),ni=Math.min(1,Math.max(0,.4-sk*1.6));
   if(fuel<=0){ni=0.02;a=0.9;}
   g.fillStyle='rgba(5,2,20,'+a+')';g.fillRect(0,0,W,H);
@@ -164,7 +181,6 @@ function draw(){
     grad.addColorStop(0,'rgba(122,240,255,0.3)');grad.addColorStop(1,'rgba(0,0,0,0)');
     g.fillStyle=grad;g.beginPath();g.arc(gx,gy,60,0,Math.PI*2);g.fill();
   }
-  // Player Lantern Glow
   var hgrad=g.createRadialGradient(px-ox,py-oy-12,5,px-ox,py-oy-12,(fuel<=0?20:120));
   hgrad.addColorStop(0,'rgba(255,226,122,0.8)');hgrad.addColorStop(1,'rgba(0,0,0,0)');
   g.fillStyle=hgrad;g.beginPath();g.arc(px-ox,py-oy-12,120,0,Math.PI*2);g.fill();
